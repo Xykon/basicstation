@@ -162,6 +162,7 @@ void s2e_flushRxjobs (s2ctx_t* s2ctx) {
         uj_encOpen(&sendbuf, '{');
         if( !s2e_parse_lora_frame(&sendbuf, &s2ctx->rxq.rxdata[j->off], j->len, lbuf.buf ? &lbuf : NULL) ) {
             // Frame failed sanity checks or stopped by filters
+            if( lbuf.buf ) log_specialFlush(lbuf.pos);
             sendbuf.pos = 0;
             continue;
         }

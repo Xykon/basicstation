@@ -61,7 +61,11 @@ extern void setupConfigFilenames ();
 extern int checkUris ();
 extern void checkRollForward ();
 
-
+#define WHITELIST_SIZE  16
+extern u4_t static_netids[WHITELIST_SIZE];
+extern u1_t static_netids_count;
+extern u4_t static_ouis[WHITELIST_SIZE];
+extern u1_t static_ouis_count;
 
 #if defined(CFG_ral_master_slave)
 static const char* const SLAVE_ENVS[] = {
@@ -790,6 +794,22 @@ static int parseStationConf () {
                 }
                 case J_web_dir: {
                     setWebDir(uj_str(&D), filename);
+                    break;
+                }
+                case J_whitelist_netids: {
+                    uj_enterArray(&D);
+                    while( uj_nextSlot(&D) >= 0 ) {
+                        static_netids[static_netids_count++] = ((int) strtol(uj_str(&D), NULL, 0)) & 0x00FFFFFF;
+                    }
+                    uj_exitArray(&D);
+                    break;
+                }
+                case J_whitelist_ouis: {
+                    uj_enterArray(&D);
+                    while( uj_nextSlot(&D) >= 0 ) {
+                        static_ouis[static_ouis_count++] = ((int) strtol(uj_str(&D), NULL, 0)) & 0x00FFFFFF;
+                    }
+                    uj_exitArray(&D);
                     break;
                 }
                 default: {

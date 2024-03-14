@@ -82,6 +82,26 @@
 uL_t* s2e_joineuiFilter;
 u4_t  s2e_netidFilter[4] = { 0xffFFffFF, 0xffFFffFF, 0xffFFffFF, 0xffFFffFF };
 
+#define WHITELIST_SIZE  16
+u4_t static_netids[WHITELIST_SIZE] = {0};
+u1_t static_netids_count = 0;
+u4_t static_ouis[WHITELIST_SIZE] = {0};
+u1_t static_ouis_count = 0;
+
+static u4_t get_netid(u4_t devaddr) {
+
+    uint8_t nwkid_bits_array[] = { 6, 6, 9, 11, 12, 13, 15, 17 };
+    uint8_t type_id = __builtin_clz(~devaddr);
+    if (type_id > 7) return 0;
+
+    uint8_t nwkid_bits = nwkid_bits_array[type_id];
+    uint32_t nwkid = devaddr >> (31 - type_id - nwkid_bits);
+    nwkid &= ((1 << nwkid_bits) - 1);
+
+    return (type_id << 21) | nwkid;
+
+}
+
 
 int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbuf) {
     if( len == 0 ) {
@@ -108,6 +128,7 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
         if( len != OFF_jreq_len)
             goto badframe;
         uL_t joineui = rt_rlsbf8(&frame[OFF_joineui]);
+        uL_t  deveui = rt_rlsbf8(&frame[OFF_deveui]);
         
         if( s2e_joineuiFilter[0] != 0 ) {
             uL_t* f = s2e_joineuiFilter-2;
@@ -120,9 +141,25 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
             return 0;
           out1:;
         }
+
+        /* Filter by statically defined OUIs */
+        if (static_ouis_count > 0) {
+
+            for (u1_t i=0; i<static_ouis_count; i++) {
+                if ((deveui >> 40) == static_ouis[i]) {
+                    goto out2;
+                }
+            }
+            
+            xprintf(lbuf, "DevEUI %E filtered (not in static whitelist)", deveui);
+            return 0;
+            
+            out2:;
+        
+        }
+
         str_t msgtype = (ftype == FRMTYPE_JREQ ? "jreq" : "rejoin");
         u1_t  mhdr = frame[OFF_mhdr];
-        uL_t  deveui = rt_rlsbf8(&frame[OFF_deveui]);
         u2_t  devnonce = rt_rlsbf2(&frame[OFF_devnonce]);
         s4_t  mic = (s4_t)rt_rlsbf4(&frame[len-4]);
         uj_encKVn(buf,
@@ -148,6 +185,24 @@ int s2e_parse_lora_frame (ujbuf_t* buf, const u1_t* frame , int len, dbuf_t* lbu
         xprintf(lbuf, "DevAddr=%X with NetID=%d filtered", devaddr, netid);
         return 0;
     }
+    
+    /* Filter by statically defined NetIDs */
+    if (static_netids_count > 0) {
+        
+        u4_t netid = get_netid(devaddr);
+        for (u1_t i=0; i<static_netids_count; i++) {
+            if (netid == static_netids[i]) {
+                goto out3;
+            }
+        }
+        
+        xprintf(lbuf, "DevAddr=%08X with NetID=0x%06X filtered (not in static whitelist)", devaddr, netid);
+        return 0;
+        
+        out3:;
+    
+    }
+
     u1_t  mhdr  = frame[OFF_mhdr];
     u1_t  fctrl = frame[OFF_fctrl];
     u2_t  fcnt  = rt_rlsbf2(&frame[OFF_fcnt]);

@@ -240,3 +240,5 @@
 #define J_wifi_ssid            ((ujcrc_t)(0xE60F391C))
 #define J_wifi_pass            ((ujcrc_t)(0xE13C3600))
 #define J_cups_uri             ((ujcrc_t)(0x594AB0B8))
+#define J_whitelist_netids     ((ujcrc_t)(0x71028769))
+#define J_whitelist_ouis       ((ujcrc_t)(0xCA7848FB))
